@@ -129,7 +129,7 @@ jobs:
             cd rfone_host ;
             mkdir build ;
             cd build ;
-            C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release '-DLIBUSB_LIBRARY=C:/Program Files/PothosSDR/lib/libusb-1.0.lib' '-DLIBUSB_INCLUDE_DIR=C:/Program Files/PothosSDR/include/libusb-1.0'" ;
+            C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release '-DLIBUSB_LIBRARIES=C:/Program Files/PothosSDR/lib/libusb-1.0.lib' '-DLIBUSB_INCLUDE_DIRS=C:/Program Files/PothosSDR/include/libusb-1.0'" ;
             C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "ninja" ;
             C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "ninja install"
 
