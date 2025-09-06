@@ -124,7 +124,18 @@ jobs:
           run: git clone https://github.com/AlexandreRouma/libfobos ; cd libfobos ; mkdir build ; cd build ; cmake .. -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" ; cmake --build . --config Release ; cmake --install .
 
         - name: Install libhydrasdr
-          run: git clone https://github.com/hydrasdr/rfone_host ; cd rfone_host ; mkdir build ; cd build ; cmake .. -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" "-DCMAKE_INSTALL_PREFIX=C:/Program Files/PothosSDR" ; cmake --build . --config Release ; cmake --install .
+          run: >
+            git clone https://github.com/hydrasdr/rfone_host ;
+            cd rfone_host ;
+            mkdir build ;
+            cd build ;
+            cmake .. -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_PREFIX_PATH="C:/vcpkg/installed/x64-windows"
+            "-DLIBUSB_LIBRARY=C:/Program Files/PothosSDR/lib/libusb-1.0.lib"
+            "-DLIBUSB_INCLUDE_DIR=C:/Program Files/PothosSDR/include/libusb-1.0"
+            "-DCMAKE_INSTALL_PREFIX=C:/Program Files/PothosSDR" ;
+            cmake --build . --config Release ;
+            cmake --install .
 
         - name: Prepare CMake
           working-directory: ${{runner.workspace}}/build
