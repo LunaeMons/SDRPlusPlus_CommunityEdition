@@ -123,9 +123,6 @@ jobs:
         - name: Install libfobos
           run: git clone https://github.com/AlexandreRouma/libfobos ; cd libfobos ; mkdir build ; cd build ; cmake .. -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" ; cmake --build . --config Release ; cmake --install .
 
-        - name: HACK: Copy libusb DLL for broken hydrasdr build
-          run: cp "C:/Program Files/PothosSDR/bin/libusb-1.0.dll" "C:/msys64/mingw64/bin/"
-
         - name: Install libhydrasdr
           run: >
             git clone https://github.com/hydrasdr/rfone_host ;
