@@ -129,13 +129,9 @@ jobs:
             cd rfone_host ;
             mkdir build ;
             cd build ;
-            cmake .. -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_PREFIX_PATH="C:/vcpkg/installed/x64-windows"
-            "-DLIBUSB_LIBRARY=C:/Program Files/PothosSDR/lib/libusb-1.0.lib"
-            "-DLIBUSB_INCLUDE_DIR=C:/Program Files/PothosSDR/include/libusb-1.0"
-            "-DCMAKE_INSTALL_PREFIX=C:/Program Files/PothosSDR" ;
-            cmake --build . --config Release ;
-            cmake --install .
+            C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release '-DLIBUSB_LIBRARIES=C:/Program Files/PothosSDR/lib/libusb-1.0.lib' '-DLIBUSB_INCLUDE_DIRS=C:/Program Files/PothosSDR/include/libusb-1.0'" ;
+            C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "ninja" ;
+            C:/msys64/msys2_shell.cmd -defterm -here -no-start -mingw64 -c "ninja install"
 
         - name: Prepare CMake
           working-directory: ${{runner.workspace}}/build
