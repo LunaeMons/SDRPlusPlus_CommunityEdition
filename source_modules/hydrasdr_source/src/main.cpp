@@ -95,14 +95,13 @@ public:
 #else
         // Check for device presence
         int vid, pid;
+        // TODO: Add proper HydraSDR VID/PID detection for Android
         devFd = backend::getDeviceFD(vid, pid, backend::AIRSPY_VIDPIDS);
         if (devFd < 0) { return; }
 
         // Get device info
         std::string fakeName = "HydraSDR USB";
-        devList.push_back(0xDEADBEEF);
-        devListTxt += fakeName;
-        devListTxt += '\0';
+        devices.define("android_hydrasdr", fakeName, 0xDEADBEEF);
 #endif
     }
 

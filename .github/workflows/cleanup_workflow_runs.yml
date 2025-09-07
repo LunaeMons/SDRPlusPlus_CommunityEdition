@@ -33,6 +33,8 @@ on:
         required: false
         type: string
         default: ''
+  schedule:
+    - cron: '0 0 * * *' # Runs every day at midnight UTC
 
 env:
   GH_TOKEN: ${{ github.token }}
@@ -47,11 +49,17 @@ jobs:
     outputs:
       can_cleanup: ${{ steps.check.outputs.can_cleanup }}
     steps:
-    - name: Check if user has admin permissions
+    - name: Check permissions or schedule
       id: check
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
+        if [ "${{ github.event_name }}" == "schedule" ]; then
+          echo "can_cleanup=true" >> $GITHUB_OUTPUT
+          echo "✅ Scheduled run, proceeding with cleanup."
+          exit 0
+        fi
+
         # Check if the triggering user has admin or maintain permissions
         USER_PERMISSION=$(gh api repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
         echo "User ${{ github.actor }} has permission: $USER_PERMISSION"
@@ -77,9 +85,16 @@ jobs:
       run: |
         echo "Setting up cleanup parameters..."
         
+        # Use schedule-specific defaults or manual inputs from workflow_dispatch
+        MAX_AGE_DAYS=$([[ "${{ github.event_name }}" == "schedule" ]] && echo "0" || echo "${{ inputs.max_age_days }}")
+        DRY_RUN=$([[ "${{ github.event_name }}" == "schedule" ]] && echo "false" || echo "${{ inputs.dry_run }}")
+        DELETE_CANCELLED=$([[ "${{ github.event_name }}" == "schedule" ]] && echo "true" || echo "${{ inputs.delete_cancelled }}")
+        DELETE_ERRORED=$([[ "${{ github.event_name }}" == "schedule" ]] && echo "true" || echo "${{ inputs.delete_errored }}")
+        DELETE_TIMED_OUT=$([[ "${{ github.event_name }}" == "schedule" ]] && echo "true" || echo "${{ inputs.delete_timed_out }}")
+        
         # Calculate cutoff date for age filtering
-        if [ "${{ inputs.max_age_days }}" != "" ] && [ "${{ inputs.max_age_days }}" != "0" ]; then
-          CUTOFF_DATE=$(date -d "${{ inputs.max_age_days }} days ago" +%Y-%m-%d)
+        if [ "$MAX_AGE_DAYS" != "" ] && [ "$MAX_AGE_DAYS" != "0" ]; then
+          CUTOFF_DATE=$(date -d "$MAX_AGE_DAYS days ago" +%Y-%m-%d)
           echo "cutoff_date=$CUTOFF_DATE" >> $GITHUB_OUTPUT
           echo "📅 Will only delete runs older than: $CUTOFF_DATE"
         else
@@ -89,13 +104,13 @@ jobs:
         
         # Setup status filters
         STATUSES=()
-        if [ "${{ inputs.delete_cancelled }}" = "true" ]; then
+        if [ "$DELETE_CANCELLED" = "true" ]; then
           STATUSES+=("cancelled")
         fi
-        if [ "${{ inputs.delete_errored }}" = "true" ]; then
+        if [ "$DELETE_ERRORED" = "true" ]; then
           STATUSES+=("failure")
         fi
-        if [ "${{ inputs.delete_timed_out }}" = "true" ]; then
+        if [ "$DELETE_TIMED_OUT" = "true" ]; then
           STATUSES+=("timed_out")
         fi
         
@@ -109,7 +124,7 @@ jobs:
         echo "status_list=$STATUS_LIST" >> $GITHUB_OUTPUT
         echo "🎯 Will target runs with statuses: $STATUS_LIST"
         
-        if [ "${{ inputs.dry_run }}" = "true" ]; then
+        if [ "$DRY_RUN" = "true" ]; then
           echo "🔍 DRY RUN MODE - No actual deletions will be performed"
         else
           echo "⚠️  LIVE MODE - Runs will be permanently deleted"
@@ -124,6 +139,12 @@ jobs:
       run: |
         echo "🔍 Scanning for workflow runs to delete..."
         
+        BRANCH_FILTER=""
+        if [ "${{ github.event_name }}" == "schedule" ]; then
+            BRANCH_FILTER="&branch=master"
+            echo "🌿 Filtering for 'master' branch runs only."
+        fi
+
         # Get list of workflows
         if [ -n "$WORKFLOW_NAME" ]; then
           echo "📋 Filtering for workflow: $WORKFLOW_NAME"
@@ -159,7 +180,7 @@ jobs:
             # Get runs with this status (paginated)
             page=1
             while true; do
-              RUNS_PAGE=$(gh api "repos/${{ github.repository }}/actions/workflows/$workflow_id/runs?status=$status&per_page=100&page=$page" \
+              RUNS_PAGE=$(gh api "repos/${{ github.repository }}/actions/workflows/$workflow_id/runs?status=$status&per_page=100&page=$page$BRANCH_FILTER" \
                 --jq '.workflow_runs[]')
               
               if [ -z "$RUNS_PAGE" ]; then
@@ -225,7 +246,7 @@ jobs:
       env:
         RUNS_TO_DELETE: ${{ steps.list_runs.outputs.runs_to_delete }}
         TOTAL_RUNS: ${{ steps.list_runs.outputs.total_runs }}
-        DRY_RUN: ${{ inputs.dry_run }}
+        DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
       run: |
         if [ "$DRY_RUN" = "true" ]; then
           echo "🔍 DRY RUN - Would delete $TOTAL_RUNS workflow runs"
@@ -279,14 +300,25 @@ jobs:
         echo ""
         echo "🎯 CLEANUP WORKFLOW COMPLETED"
         echo "================================"
-        echo "Parameters used:"
-        echo "  • Max age: ${{ inputs.max_age_days }} days"
-        echo "  • Dry run: ${{ inputs.dry_run }}"
-        echo "  • Delete cancelled: ${{ inputs.delete_cancelled }}"
-        echo "  • Delete errored: ${{ inputs.delete_errored }}"
-        echo "  • Delete timed out: ${{ inputs.delete_timed_out }}"
-        echo "  • Workflow filter: ${{ inputs.workflow_name || 'All workflows' }}"
+        if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "Run type: Scheduled (Cron)"
+            echo "Parameters used:"
+            echo "  • Target Branch: master"
+            echo "  • Max age: 0 days (no age restriction)"
+            echo "  • Dry run: false"
+            echo "  • Statuses: cancelled, failure, timed_out"
+            echo "  • Workflow filter: All workflows"
+        else
+            echo "Run type: Manual Dispatch"
+            echo "Parameters used:"
+            echo "  • Max age: ${{ inputs.max_age_days }} days"
+            echo "  • Dry run: ${{ inputs.dry_run }}"
+            echo "  • Delete cancelled: ${{ inputs.delete_cancelled }}"
+            echo "  • Delete errored: ${{ inputs.delete_errored }}"
+            echo "  • Delete timed out: ${{ inputs.delete_timed_out }}"
+            echo "  • Workflow filter: ${{ inputs.workflow_name || 'All workflows' }}"
+        fi
         echo ""
-        if [ "${{ inputs.dry_run }}" = "true" ]; then
+        if [ "${{ inputs.dry_run }}" = "true" ] && [ "${{ github.event_name }}" != "schedule" ]; then
           echo "💡 This was a dry run. To actually delete runs, set 'Dry run' to false"
         fi
