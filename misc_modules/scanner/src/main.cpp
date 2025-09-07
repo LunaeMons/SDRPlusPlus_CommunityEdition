@@ -15,8 +15,10 @@
 #include <set>      // For std::set in profile diagnostics
 #include <cstdint>  // For uintptr_t
 #include "scanner_log.h" // Custom logging macros
+#include "../Logger.hpp"
 #include <gui/widgets/precision_slider.h>
 #include <gui/widgets/folder_select.h>
+#include <gui/file_dialogs.h>
 #include <filesystem>
 #include <regex>
 #include "../../recorder/src/recorder_interface.h"
@@ -179,6 +181,13 @@ public:
         saveConfig();
         gui::menu.removeEntry(name);
         core::modComManager.unregisterInterface(name);
+        stop();
+        
+        // Clean up file dialog
+        if (logFileDialog) {
+            delete logFileDialog;
+            logFileDialog = nullptr;
+        }
         
         flog::info("Scanner: Destructor completed");
     }
@@ -338,6 +347,46 @@ public:
 
 
 private:
+    // Scanner logging
+    bool enableScanLogging = false;
+    std::string scanLogPath;
+    int scanLogMinDurationMs = 100;  // Minimum transmission duration to log (milliseconds)
+    ScannerLogger scannerLogger;
+    pfd::save_file* logFileDialog = nullptr;
+    
+    // Transmission duration tracking
+    std::chrono::system_clock::time_point currentTransmissionStart;
+    double currentTransmissionFreq = 0.0;
+    float currentTransmissionLevel = 0.0f;
+    bool isTrackingTransmission = false;
+    
+    // Helper function to log transmission end
+    void logTransmissionEnd() {
+        if (enableScanLogging && isTrackingTransmission) {
+            auto now = std::chrono::system_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - currentTransmissionStart);
+            float durationSeconds = duration.count() / 1000.0f;
+            
+            // Apply minimum duration filter
+            if (duration.count() >= scanLogMinDurationMs) {
+                ScanRecord rec{
+                    currentTransmissionFreq, 
+                    currentTransmissionLevel, 
+                    currentTransmissionStart,
+                    now,
+                    durationSeconds,
+                    true  // isEndOfTransmission
+                };
+                scannerLogger.log(rec);
+                flog::debug("Scanner: Logged transmission {:.6f} MHz, duration: {:.3f}s", 
+                           currentTransmissionFreq / 1e6, durationSeconds);
+            } else {
+                flog::debug("Scanner: Skipped short transmission {:.6f} MHz, duration: {}ms (< {}ms threshold)", 
+                           currentTransmissionFreq / 1e6, (int)duration.count(), (int)scanLogMinDurationMs);
+            }
+            isTrackingTransmission = false;
+        }
+    }
     // Coverage Analysis Functions for Band Scanning Optimization
     struct CoverageAnalysis {
         double bandWidth = 0.0;           // Total band width (Hz)
@@ -1000,6 +1049,10 @@ private:
                 // UX FIX: Automatically resume scanning after blacklisting (same as "Blacklist Current")
                 {
                     std::lock_guard<std::mutex> lck(_this->scanMtx);
+                    
+                    // Log any ongoing transmission before manual stop
+                    _this->logTransmissionEnd();
+                    
                     _this->receiving = false;
                 }
                 _this->applyMuteWhileScanning(); // Mute while resuming scanning
@@ -1506,14 +1559,101 @@ private:
             }
         }
         
+        // === SCAN LOGGING CONTROLS ===
+        ImGui::Spacing();
+        ImGui::Text("Scan Logging");
+        ImGui::Separator();
+        
+        if (ImGui::Checkbox("Enable Logging##scanner_enable_logging", &_this->enableScanLogging)) {
+            _this->saveConfig();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Log detected frequencies to CSV file for analysis\nFormat: Frequency_Hz, Signal_dBFS, Start_Timestamp, End_Timestamp, Duration_Seconds, Frequency_MHz");
+        }
+        
+        if (_this->enableScanLogging) {
+            ImGui::LeftLabel("Log File Path");
+            ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX() - 60);
+            
+            // Create a buffer for the input text (ImGui needs a mutable char array)
+            static char logPathBuffer[512];
+            if (_this->scanLogPath.length() < sizeof(logPathBuffer) - 1) {
+                strcpy(logPathBuffer, _this->scanLogPath.c_str());
+            }
+            
+            if (ImGui::InputText("##scanner_log_path", logPathBuffer, sizeof(logPathBuffer))) {
+                _this->scanLogPath = std::string(logPathBuffer);
+                _this->saveConfig();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("...##scanner_log_browse")) {
+                // Open file save dialog for CSV log file
+                if (_this->logFileDialog) {
+                    delete _this->logFileDialog;
+                }
+                _this->logFileDialog = new pfd::save_file("Save Scanner Log", _this->scanLogPath, 
+                    { "CSV Files (*.csv)", "*.csv", "All Files", "*" });
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Browse for log file location");
+            }
+            
+            // Handle file dialog result
+            if (_this->logFileDialog && _this->logFileDialog->ready()) {
+                std::string result = _this->logFileDialog->result();
+                if (!result.empty()) {
+                    _this->scanLogPath = result;
+                    // Update the buffer for the input text
+                    if (_this->scanLogPath.length() < sizeof(logPathBuffer) - 1) {
+                        strcpy(logPathBuffer, _this->scanLogPath.c_str());
+                    }
+                    _this->saveConfig();
+                }
+                delete _this->logFileDialog;
+                _this->logFileDialog = nullptr;
+            }
+            
+            // Minimum duration filter with immediate effect
+            ImGui::LeftLabel("Min Duration (ms)");
+            if (ImGui::SliderInt(("##scanner_min_duration_ms_" + _this->name).c_str(), &_this->scanLogMinDurationMs, 10, 10000, "%d ms")) {
+                _this->saveConfig();
+                flog::info("Scanner: Log duration filter changed to {}ms (immediate effect)", _this->scanLogMinDurationMs);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Minimum transmission duration to log (milliseconds)\n"
+                                 "Transmissions shorter than this will be ignored\n"
+                                 "Changes take immediate effect during scanning\n"
+                                 "Range: 10ms - 10000ms (10 seconds)");
+            }
+            
+            // Show current log file status
+            if (_this->running && _this->enableScanLogging) {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Logging Active");
+                if (_this->isTrackingTransmission) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "(Tracking Signal)");
+                }
+            } else if (_this->enableScanLogging) {
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Logging Ready");
+            }
+            
+            // Show effective log path
+            std::string effectivePath = _this->scanLogPath.empty() ? "scanner_log.csv" : _this->scanLogPath;
+            ImGui::LeftLabel("Effective Path");
+            ImGui::TextWrapped("%s", effectivePath.c_str());
+        }
+        
         // Draw signal analysis tooltip near VFO if enabled and signal detected
         _this->drawSignalTooltip();
     }
 
     void start() {
-        if (running) { 
-            flog::warn("Scanner: Already running");
-            return; 
+        if (running) { flog::warn("Scanner: Already running"); return; }
+        // Start logger if enabled
+        if (enableScanLogging) {
+            std::string path = scanLogPath.empty() ? "scanner_log.csv" : scanLogPath;
+            scannerLogger.start(path);
+            flog::info("Scanner: Logging enabled to {}", path);
         }
         
         // THREAD SAFETY: Clean up any existing thread before starting new one
@@ -1581,6 +1721,14 @@ private:
     }
 
     void stop() {
+        // Log any ongoing transmission before stopping
+        logTransmissionEnd();
+        
+        // Stop logger
+        if (enableScanLogging) {
+            scannerLogger.stop();
+            flog::info("Scanner: Logging stopped");
+        }
         if (!running) { return; }
         
         flog::info("Scanner: Stop requested, setting running=false");
@@ -1615,7 +1763,11 @@ private:
 
     void reset() {
         std::lock_guard<std::mutex> lck(scanMtx);
-            current = startFreq;
+        
+        // Log any ongoing transmission before resetting
+        logTransmissionEnd();
+        
+        current = startFreq;
         receiving = false;
         
         // AUTO-RECORDING: Stop any active recording when scanner resets
@@ -1690,6 +1842,10 @@ private:
         // Save frequency manager integration settings
         // NOTE: useFrequencyManager and applyProfiles are now always enabled (no longer configurable)
         config.conf["scanRateHz"] = scanRateHz;
+        // Scanner logging config
+        config.conf["enableScanLogging"] = enableScanLogging;
+        config.conf["scanLogPath"] = scanLogPath;
+        config.conf["scanLogMinDurationMs"] = scanLogMinDurationMs;
         
         // Save auto-recording settings
         config.conf["autoRecord"] = autoRecord;
@@ -1704,6 +1860,13 @@ private:
     }
 
     void loadConfig() {
+        config.acquire();
+        // Existing load code ...
+        enableScanLogging = config.conf.value("enableScanLogging", false);
+        scanLogPath = config.conf.value("scanLogPath", "");
+        scanLogMinDurationMs = config.conf.value("scanLogMinDurationMs", 100);
+        config.release();
+        // Rest of existing loadConfig continues
         config.acquire();
         startFreq = config.conf.value("startFreq", 88000000.0);
         stopFreq = config.conf.value("stopFreq", 108000000.0);
@@ -2077,6 +2240,9 @@ private:
                             receiving = false;
                             SCAN_DEBUG("Scanner: Signal lost, resuming scanning");
                             
+                            // Log transmission end for duration tracking
+                            logTransmissionEnd();
+                            
                             // AUTO-RECORDING: Stop recording when signal lost (linger time expired)
                             if (autoRecord && recordingControlState == RECORDING_ACTIVE) {
                                 stopAutoRecording();
@@ -2126,6 +2292,18 @@ private:
                             }
                             
                             receiving = true;
+                
+                // Track transmission start for duration logging
+                if (enableScanLogging) {
+                    auto now = std::chrono::system_clock::now();
+                    if (!isTrackingTransmission) {
+                        // Start tracking new transmission
+                        currentTransmissionStart = now;
+                        currentTransmissionFreq = current;
+                        currentTransmissionLevel = maxLevel;
+                        isTrackingTransmission = true;
+                    }
+                }
                             SCAN_DEBUG("Scanner: Setting receiving=true for single frequency signal at %.6f MHz (level: %.1f)\n", current / 1e6, maxLevel);
                             lastSignalTime = now;
                             flog::info("Scanner: Found signal at single frequency {:.6f} MHz (level: {:.1f})", current / 1e6, maxLevel);
@@ -2356,6 +2534,18 @@ private:
                 
                 found = true;
                 receiving = true;
+                
+                // Track transmission start for duration logging
+                if (enableScanLogging) {
+                    auto now = std::chrono::system_clock::now();
+                    if (!isTrackingTransmission) {
+                        // Start tracking new transmission
+                        currentTransmissionStart = now;
+                        currentTransmissionFreq = current;
+                        currentTransmissionLevel = maxLevel;
+                        isTrackingTransmission = true;
+                    }
+                }
                 current = peakFreq;
                 
                 // AUTO-RECORDING: Start recording when signal detected

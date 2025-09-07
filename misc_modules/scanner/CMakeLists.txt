@@ -5,7 +5,7 @@ project(scanner)
 # Set to ON only for development/debugging
 option(SCANNER_DEBUG_LOGS "Enable verbose scanner debug logging" OFF)
 
-file(GLOB SRC "src/*.cpp")
+file(GLOB SRC "src/*.cpp" "Logger.cpp")
 
 include(${SDRPP_MODULE_CMAKE})
 
