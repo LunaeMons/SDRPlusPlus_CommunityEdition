@@ -130,8 +130,15 @@ public:
         
         flog::info("Scanner: Initializing scanner module '{}'", name);
         
+        // Set up FFT redraw handler for trigger level visualization
+        fftRedrawHandler.ctx = this;
+        fftRedrawHandler.handler = fftRedraw;
+        
         gui::menu.registerEntry(name, menuHandler, this, NULL);
         loadConfig();
+        
+        // Bind FFT redraw handler for trigger level line
+        gui::waterfall.onFFTRedraw.bindHandler(&fftRedrawHandler);
         
         // Check for midnight reset on module initialization
         checkMidnightReset();
@@ -144,6 +151,9 @@ public:
 
     ~ScannerModule() {
         flog::info("Scanner: Destructor called, cleaning up");
+        
+        // Unbind FFT redraw handler
+        gui::waterfall.onFFTRedraw.unbindHandler(&fftRedrawHandler);
         
         // Stop scanner and set running to false
         running = false;
@@ -957,6 +967,16 @@ private:
         if (ImGui::Checkbox(("##scanner_show_signal_info_" + _this->name).c_str(), &_this->showSignalInfo)) {
             _this->saveConfig();
         }
+        
+        ImGui::LeftLabel("Show Trigger Level");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Show horizontal line on FFT display indicating trigger level\n"
+                             "Visual indicator shows where scanner threshold is set\n"
+                             "Helps with adjusting trigger level for optimal scanning");
+        }
+        if (ImGui::Checkbox(("##scanner_show_trigger_level_" + _this->name).c_str(), &_this->showTriggerLevel)) {
+            _this->saveConfig();
+        }
 
         // Blacklist controls
         ImGui::Separator();
@@ -1651,6 +1671,7 @@ private:
         config.conf["showSignalTooltip"] = showSignalTooltip;
         config.conf["unlockHighSpeed"] = unlockHighSpeed;
         config.conf["tuningTimeAuto"] = tuningTimeAuto;
+        config.conf["showTriggerLevel"] = showTriggerLevel;
         
         // Save frequency ranges
         json rangesArray = json::array();
@@ -1707,6 +1728,7 @@ private:
         showSignalTooltip = config.conf.value("showSignalTooltip", false);
         unlockHighSpeed = config.conf.value("unlockHighSpeed", false);
         tuningTimeAuto = config.conf.value("tuningTimeAuto", false);
+        showTriggerLevel = config.conf.value("showTriggerLevel", true);
         
         // Initialize time points
         lastNoiseUpdate = std::chrono::high_resolution_clock::now();
@@ -3847,6 +3869,10 @@ private:
     bool showSignalTooltip = false;         // Whether to show persistent signal tooltip
     std::chrono::time_point<std::chrono::high_resolution_clock> lastSignalAnalysisTime; // Time of last signal analysis update
     
+    // Trigger level visualization settings
+    bool showTriggerLevel = true;            // Show horizontal line for trigger level on FFT display
+    EventHandler<ImGui::WaterFall::FFTRedrawArgs> fftRedrawHandler;
+    
     // Continuous signal centering
     std::chrono::time_point<std::chrono::high_resolution_clock> lastCenteringTime; // Time of last signal centering
     const int CENTERING_INTERVAL_MS = 50; // Interval for continuous centering in milliseconds
@@ -4108,6 +4134,52 @@ private:
         return "Unknown";
     }
     
+    // FFT redraw handler for trigger level visualization
+    static void fftRedraw(ImGui::WaterFall::FFTRedrawArgs args, void* ctx) {
+        ScannerModule* _this = (ScannerModule*)ctx;
+        
+        // Only draw if trigger level visualization is enabled
+        if (!_this->showTriggerLevel) { return; }
+        
+        // Calculate the Y position of the trigger level line
+        // Convert trigger level (dBFS) to pixel position on FFT display
+        float fftMin = gui::waterfall.getFFTMin();
+        float fftMax = gui::waterfall.getFFTMax();
+        float vertRange = fftMax - fftMin;
+        
+        // Clamp trigger level to visible range
+        float clampedLevel = std::clamp(_this->level, fftMin, fftMax);
+        
+        // Calculate Y position (note: FFT display is inverted, max is at top)
+        float scaleFactor = (args.max.y - args.min.y) / vertRange;
+        float yPos = args.max.y - ((clampedLevel - fftMin) * scaleFactor);
+        
+        // Draw horizontal line across the entire FFT width
+        ImU32 lineColor = IM_COL32(255, 165, 0, 200); // Orange color with transparency
+        args.window->DrawList->AddLine(
+            ImVec2(args.min.x, yPos), 
+            ImVec2(args.max.x, yPos), 
+            lineColor, 
+            2.0f * style::uiScale  // Line thickness scaled with UI
+        );
+        
+        // Optional: Add text label showing the trigger level value
+        char levelText[32];
+        snprintf(levelText, sizeof(levelText), "%.1f dBFS", _this->level);
+        ImVec2 textSize = ImGui::CalcTextSize(levelText);
+        
+        // Position text at right edge of FFT display
+        ImVec2 textPos = ImVec2(args.max.x - textSize.x - 5, yPos - textSize.y - 2);
+        
+        // Draw text background for better visibility
+        ImVec2 bgMin = ImVec2(textPos.x - 2, textPos.y - 1);
+        ImVec2 bgMax = ImVec2(textPos.x + textSize.x + 2, textPos.y + textSize.y + 1);
+        args.window->DrawList->AddRectFilled(bgMin, bgMax, IM_COL32(0, 0, 0, 128));
+        
+        // Draw the text
+        args.window->DrawList->AddText(textPos, IM_COL32(255, 165, 0, 255), levelText);
+    }
+    
     // Module interface handler for external communication
     static void scannerInterfaceHandler(int code, void* in, void* out, void* ctx) {
         ScannerModule* _this = (ScannerModule*)ctx;
@@ -4227,6 +4299,7 @@ MOD_EXPORT void _INIT_() {
         def["showSignalTooltip"] = false;
         def["unlockHighSpeed"] = false;
         def["tuningTimeAuto"] = false;
+        def["showTriggerLevel"] = true;
     
     // Scanning direction preference 
     def["scanUp"] = true; // Default to increasing frequency
