@@ -32,14 +32,9 @@ The SDR++CE Scanner module has been significantly enhanced with **multiple named
 - **70cm Ham** (420-450 MHz)
 
 ### **Smart Blacklist Management**
-- **Current Frequency Display**: Shows current tuned frequency in Hz and MHz
-- **Blacklist Current Frequency**: One-click button to blacklist the currently tuned frequency
-- **Duplicate Prevention**: Automatically checks if frequency already blacklisted within tolerance
-- **Smart UI State**: Button disabled when no VFO is selected
-- **Visual Feedback**: Clear display of what frequency will be blacklisted
-- **Vertical Layout**: Blacklisted frequencies displayed vertically for better space utilization
-- **Scrollable Interface**: Handles unlimited blacklist entries with scrollable container (5+ entries)
-- **Dual Format Display**: Shows frequencies in both Hz and MHz (e.g., "146520000 Hz (146.520 MHz)")
+- **Frequency Manager Integration**: Dedicated blacklist list stores blocked frequencies and bands
+- **Quick Access**: Main window **BL** button adds the current frequency to the blacklist
+- **Band Support**: Add single frequencies or ranges directly within Frequency Manager
 
 ### **Universal Gain Control System**
 - **Per-Band Gain Settings**: Each frequency range has configurable gain settings
@@ -114,9 +109,7 @@ public:
       "gain": 30.0
     }
   ],
-  "currentRangeIndex": 0,
-  "blacklistedFreqs": [146520000.0, 162400000.0],
-  "blacklistTolerance": 1000.0
+  "currentRangeIndex": 0
 }
 ```
 
@@ -150,10 +143,9 @@ public:
 While scanning, you encounter an annoying signal at 146.520 MHz:
 ```
 1. Tune to the unwanted frequency (146.520 MHz)
-2. Scanner shows: "Current Frequency: 146520000 Hz (146.520 MHz)"
-3. Click "Blacklist Current Frequency" 
-4. Scanner confirms: "Added current frequency 146520000 Hz to blacklist"
-5. Continue scanning - 146.520 MHz now automatically skipped!
+2. Press the **BL** button in the main window
+3. Frequency Manager adds the entry to the **Blacklist** list
+4. Continue scanning – 146.520 MHz is now automatically skipped
 ```
 
 ### **Example 4: Universal Gain Control in Action**

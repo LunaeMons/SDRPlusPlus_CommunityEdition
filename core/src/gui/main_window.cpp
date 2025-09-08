@@ -193,18 +193,18 @@ void MainWindow::init() {
     sigpath::sourceManager.tune(frequency);
     gui::waterfall.setCenterFrequency(frequency);
     bw = core::configManager.conf["fftZoom"];
-    
+
     // Apply the saved FFT zoom level
     double factor = (double)bw * (double)bw;
     double wfBw = gui::waterfall.getBandwidth();
     double delta = wfBw - 1000.0;
     double finalBw = std::min<double>(1000.0 + (factor * delta), wfBw);
     gui::waterfall.setViewBandwidth(finalBw);
-    
+
     gui::waterfall.vfoFreqChanged = false;
     gui::waterfall.centerFreqMoved = false;
     gui::waterfall.selectFirstVFO();
-    
+
     // Center the VFO on screen after applying zoom
     if (!gui::waterfall.vfos.empty() && gui::waterfall.vfos.find(gui::waterfall.selectedVFO) != gui::waterfall.vfos.end()) {
         auto vfo = gui::waterfall.vfos[gui::waterfall.selectedVFO];
@@ -397,144 +397,154 @@ void MainWindow::draw() {
     if (core::modComManager.interfaceExists("Scanner")) {
         ImGui::SameLine();
         ImGui::SetCursorPosY(origY);
-        
+
         // Get scanner status using interface commands (defined in scanner module)
         bool scannerRunning = false;
         int scannerStatus = 0; // 0=idle, 1=scanning, 2=tuning, 3=receiving
-        
+
         // Use command codes that match the scanner module's interface
         core::modComManager.callInterface("Scanner", 0, NULL, &scannerRunning); // GET_RUNNING
         core::modComManager.callInterface("Scanner", 4, NULL, &scannerStatus);  // GET_STATUS
-        
+
         // Scanner start/stop button
         if (scannerRunning) {
             // Show stop button with status-based coloring
-            ImVec4 buttonColor = ImVec4(0, 0, 0, 0); // Default
-            if (scannerStatus == 3) { // Receiving
+            ImVec4 buttonColor = ImVec4(0, 0, 0, 0);          // Default
+            if (scannerStatus == 3) {                         // Receiving
                 buttonColor = ImVec4(0.0f, 0.8f, 0.0f, 0.3f); // Green tint
-            } else if (scannerStatus == 2) { // Tuning  
+            }
+            else if (scannerStatus == 2) {                    // Tuning
                 buttonColor = ImVec4(0.0f, 0.8f, 0.8f, 0.3f); // Cyan tint
-            } else if (scannerStatus == 1) { // Scanning
+            }
+            else if (scannerStatus == 1) {                    // Scanning
                 buttonColor = ImVec4(0.8f, 0.8f, 0.0f, 0.3f); // Yellow tint
             }
-            
+
             ImGui::PushID(ImGui::GetID("sdrpp_scanner_stop_btn"));
             if (ImGui::ImageButton(icons::STOP, btnSize, ImVec2(0, 0), ImVec2(1, 1), 5, buttonColor, textCol)) {
                 core::modComManager.callInterface("Scanner", 2, NULL, NULL); // STOP
             }
             ImGui::PopID();
-            
+
             // Tooltip with status
             if (ImGui::IsItemHovered()) {
-                const char* statusText[] = {"Idle", "Scanning", "Tuning", "Receiving"};
+                const char* statusText[] = { "Idle", "Scanning", "Tuning", "Receiving" };
                 ImGui::SetTooltip("Scanner: %s (Click to stop)", statusText[scannerStatus]);
             }
-        } else {
+        }
+        else {
             // Show start button (only if radio is running)
             bool sourceRunning = playing;
-            if (!sourceRunning) { 
-                style::beginDisabled(); 
+            if (!sourceRunning) {
+                style::beginDisabled();
             }
-            
+
             ImGui::PushID(ImGui::GetID("sdrpp_scanner_start_btn"));
             if (ImGui::ImageButton(icons::PLAY, btnSize, ImVec2(0, 0), ImVec2(1, 1), 5, ImVec4(0, 0, 0, 0), textCol)) {
                 core::modComManager.callInterface("Scanner", 1, NULL, NULL); // START
             }
             ImGui::PopID();
-            
-            if (!sourceRunning) { 
-                style::endDisabled(); 
+
+            if (!sourceRunning) {
+                style::endDisabled();
             }
-            
+
             // Tooltip
             if (ImGui::IsItemHovered()) {
                 if (sourceRunning) {
                     ImGui::SetTooltip("Start Scanner");
-                } else {
+                }
+                else {
                     ImGui::SetTooltip("Start Scanner (Radio must be running)");
                 }
             }
         }
-        
+
         // Scanner direction buttons (only when running)
         if (scannerRunning) {
             ImGui::SameLine();
             ImGui::SetCursorPosY(origY);
-            
+
             // Previous frequency button
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 4));
             ImGui::PushID(ImGui::GetID("sdrpp_scanner_prev_btn"));
-                            if (ImGui::Button("<<##scanner_prev", ImVec2(btnSize.x * 0.7f, btnSize.y))) {
-                    core::modComManager.callInterface("Scanner", 5, NULL, NULL); // PREV_FREQ
-                }
+            if (ImGui::Button("<<##scanner_prev", ImVec2(btnSize.x * 0.7f, btnSize.y))) {
+                core::modComManager.callInterface("Scanner", 5, NULL, NULL); // PREV_FREQ
+            }
             ImGui::PopID();
             ImGui::PopStyleVar();
-            
+
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Previous Frequency");
             }
-            
+
             ImGui::SameLine();
             ImGui::SetCursorPosY(origY);
-            
-            // Next frequency button  
+
+            // Next frequency button
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 4));
             ImGui::PushID(ImGui::GetID("sdrpp_scanner_next_btn"));
-                            if (ImGui::Button(">>##scanner_next", ImVec2(btnSize.x * 0.7f, btnSize.y))) {
-                    core::modComManager.callInterface("Scanner", 6, NULL, NULL); // NEXT_FREQ
-                }
+            if (ImGui::Button(">>##scanner_next", ImVec2(btnSize.x * 0.7f, btnSize.y))) {
+                core::modComManager.callInterface("Scanner", 6, NULL, NULL); // NEXT_FREQ
+            }
             ImGui::PopID();
             ImGui::PopStyleVar();
-            
+
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Next Frequency");
             }
         }
-        
-        // Blacklist current frequency button (always available when scanner module loaded)
+
+        // Blacklist current frequency button (managed by frequency manager)
         ImGui::SameLine();
         ImGui::SetCursorPosY(origY);
-        
+
         // Check if we have a valid VFO for blacklisting
         bool hasValidVFO = !gui::waterfall.selectedVFO.empty();
-        if (!hasValidVFO) { 
-            style::beginDisabled(); 
+        if (!hasValidVFO) {
+            style::beginDisabled();
         }
-        
+
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3, 4));
         ImGui::PushID(ImGui::GetID("sdrpp_scanner_blacklist_btn"));
-                    if (ImGui::Button("BL##scanner_blacklist", ImVec2(btnSize.x * 0.8f, btnSize.y))) {
-                core::modComManager.callInterface("Scanner", 7, NULL, NULL); // BLACKLIST
+        if (ImGui::Button("BL##scanner_blacklist", ImVec2(btnSize.x * 0.8f, btnSize.y))) {
+            double currentFreq = gui::waterfall.getCenterFrequency();
+            if (gui::waterfall.vfos.find(gui::waterfall.selectedVFO) != gui::waterfall.vfos.end()) {
+                currentFreq += gui::waterfall.vfos[gui::waterfall.selectedVFO]->centerOffset;
             }
+            const int CMD_ADD_BLACKLIST = 4;
+            core::modComManager.callInterface("frequency_manager", CMD_ADD_BLACKLIST, &currentFreq, nullptr);
+        }
         ImGui::PopID();
         ImGui::PopStyleVar();
-        
-        if (!hasValidVFO) { 
-            style::endDisabled(); 
+
+        if (!hasValidVFO) {
+            style::endDisabled();
         }
-        
+
         if (ImGui::IsItemHovered()) {
             if (hasValidVFO) {
                 ImGui::SetTooltip("Blacklist Current Frequency");
-            } else {
+            }
+            else {
                 ImGui::SetTooltip("Blacklist Current Frequency (No VFO selected)");
             }
         }
-        
+
         // Scanner reset button (only when running)
         if (scannerRunning) {
             ImGui::SameLine();
             ImGui::SetCursorPosY(origY);
-            
+
             // Create a small reset button using text
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
             ImGui::PushID(ImGui::GetID("sdrpp_scanner_reset_btn"));
-                            if (ImGui::Button("R##scanner_reset", ImVec2(btnSize.x * 0.6f, btnSize.y))) {
-                    core::modComManager.callInterface("Scanner", 3, NULL, NULL); // RESET
-                }
+            if (ImGui::Button("R##scanner_reset", ImVec2(btnSize.x * 0.6f, btnSize.y))) {
+                core::modComManager.callInterface("Scanner", 3, NULL, NULL); // RESET
+            }
             ImGui::PopID();
             ImGui::PopStyleVar();
-            
+
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("Reset Scanner");
             }
@@ -873,7 +883,6 @@ void MainWindow::setFFTMin(float min) {
     core::configManager.acquire();
     core::configManager.conf["fftMin"] = min;
     core::configManager.release();
-
 }
 
 void MainWindow::setFFTMax(float max) {

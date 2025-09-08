@@ -96,15 +96,11 @@ Each frequency manager entry can have its own **Tuning Profile** that automatica
 
 ## 🚫 Blacklist Management
 
-### Adding to Blacklist:
-- While scanner is active, click **"Blacklist Current Frequency"**
-- Scanner automatically resumes (no manual resume needed)
-- Frequency is permanently skipped until removed
+Blacklist entries are now handled by the **Frequency Manager**:
 
-### Enhanced Display:
-- Shows **frequency manager entry names** instead of raw frequencies
-- Example: "Tower Control (121.500 MHz)" instead of "121500000 Hz"
-- Helps identify what you've blacklisted
+- Open the Frequency Manager and select the **Blacklist** list to add or edit frequencies and bands.
+- The scanner automatically skips anything contained in this list.
+- Use the **BL** button on the main window to quickly add the currently tuned frequency to the blacklist.
 
 ---
 

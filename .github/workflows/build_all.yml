@@ -62,7 +62,7 @@ jobs:
             echo "Setting build version to: $BUILD_VERSION"
             
             # Update make_macos_bundle.sh
-            sed -i "s/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp/" make_macos_bundle.sh
+            sed -i "s|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp|" make_macos_bundle.sh
         
         - name: Create Build Environment
           run: cmake -E make_directory ${{runner.workspace}}/build
@@ -202,7 +202,7 @@ jobs:
             echo "Setting build version to: $BUILD_VERSION"
             
             # Update make_macos_bundle.sh
-            sed -i '' "s/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp/" make_macos_bundle.sh
+            sed -i '' "s|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp|" make_macos_bundle.sh
         
         - name: Create Build Environment
           run: cmake -E make_directory ${{runner.workspace}}/build
@@ -320,7 +320,7 @@ jobs:
             echo "Setting build version to: $BUILD_VERSION"
             
             # Update make_macos_bundle.sh
-            sed -i '' "s/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp/" make_macos_bundle.sh
+            sed -i '' "s|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp|" make_macos_bundle.sh
         
         - name: Create Build Environment
           run: cmake -E make_directory ${{runner.workspace}}/build
@@ -776,13 +776,13 @@ jobs:
             echo "Setting version to: $VERSION_STR"
             
             # Update version.h
-            sed -i "s/^#define VERSION_STR.*/#define VERSION_STR \"$VERSION_STR\"/" core/src/version.h
+            sed -i "s|^#define VERSION_STR.*|#define VERSION_STR \"$VERSION_STR\"|" core/src/version.h
             
             # Update make_macos_bundle.sh
-            sed -i "s/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp/bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp/" make_macos_bundle.sh
+            sed -i "s|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce [^ ]* sdrp|bundle_create_plist sdrppce \"SDR++CE Community Edition\" org.sdrppce.sdrppce $VERSION_STR sdrp|" make_macos_bundle.sh
             
             # Update Android version
-            sed -i "s/versionName \".*\"/versionName \"$VERSION_STR\"/" android/app/build.gradle
+            sed -i "s|versionName \".*\"|versionName \"$VERSION_STR\"|" android/app/build.gradle
 
         - name: Fetch container
           working-directory: ${{runner.workspace}}
