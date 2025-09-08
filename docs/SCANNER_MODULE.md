@@ -13,7 +13,7 @@ The Scanner module is a powerful automated frequency scanning tool for SDR++ tha
 - **Frequency Range Management**: Handles frequency boundaries with intelligent wrapping
 
 ### Advanced Features
-- **Frequency Blacklist**: Skip unwanted frequencies with configurable tolerance ranges
+- **Frequency Blacklist**: Manage unwanted frequencies or bands via Frequency Manager's dedicated list
 - **Settings Persistence**: All configuration automatically saves to `scanner_config.json`
 - **Reset Functionality**: Return to start frequency at any time
 - **Performance Monitoring**: Real-time status display and logging
@@ -34,11 +34,6 @@ The Scanner module is a powerful automated frequency scanning tool for SDR++ tha
 | **Tuning Time** | Wait time after tuning | 250 ms | 100 ms - 5000 ms |
 | **Linger Time** | Time on detected signal | 1000 ms | 100 ms - 10000 ms |
 
-### Blacklist Settings
-| Parameter | Description | Default | Range |
-|-----------|-------------|---------|-------|
-| **Blacklist Tolerance** | Frequency range around blacklisted frequencies | 1.0 kHz | 100 Hz - 100 kHz |
-
 ## User Interface
 
 ### Main Controls
@@ -48,10 +43,9 @@ The Scanner module is a powerful automated frequency scanning tool for SDR++ tha
 - **Threshold Slider**: Adjust signal detection sensitivity
 
 ### Blacklist Management
-- **Add Frequency**: Input frequency to add to blacklist
-- **Remove Individual**: Remove specific blacklisted frequencies
-- **Clear All**: Remove all blacklisted frequencies
-- **Tolerance Setting**: Configure blacklist frequency range
+- Managed via the **Frequency Manager**'s **Blacklist** list
+- Add frequencies or bands in Frequency Manager; scanner skips them automatically
+- Use the **BL** button on the main window to quickly add the current frequency
 
 ### Status Display
 - **Current Frequency**: Shows active scanning frequency
