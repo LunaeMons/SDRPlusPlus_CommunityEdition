@@ -32,10 +32,11 @@ The startup sequence in `core/src/core.cpp` is critical for establishing the app
     *   `core::configManager.load(defConfig)` is invoked. This function:
         *   If `config.json` does not exist, it's created and populated with `defConfig`.
         *   If it exists, it's loaded and parsed. If parsing fails due to corruption, the config is reset to `defConfig`.
-    *   **Configuration Repair (in `core.cpp`):** After loading, the main initialization code performs schema validation:
-        *   It iterates through `defConfig` and adds any missing keys to the loaded configuration.
-        *   It then iterates through the loaded config and removes any keys not present in `defConfig` (logged as "Unused key in config [keyName], repairing").
-        *   This two-pass validation ensures configuration compatibility across versions and prevents unknown keys from persisting.
+            *   **Configuration Repair (in `core.cpp`):** After loading, the main initialization code performs schema validation:
+            *   It iterates through `defConfig` and adds any missing keys to the loaded configuration.
+            *   It then iterates through the loaded config and removes any keys not present in `defConfig` (logged as "Unused key in config [keyName], repairing").
+            *   This two-pass validation ensures configuration compatibility across versions and prevents unknown keys from persisting.
+            *   **CRITICAL FOR DEVELOPERS:** All module configuration keys MUST be added to `defConfig` in `core/src/core.cpp`, or they will be automatically deleted during startup. This is a common source of "settings not persisting" issues.
     *   `core::configManager.enableAutoSave()` spawns the background save thread that periodically persists changes.
 3.  **Backend and GUI Initialization:**
     *   `backend::init(resDir)` initializes the windowing system (GLFW) and graphics context (OpenGL).
@@ -140,3 +141,16 @@ Correctly interacting with the `ConfigManager` is essential for module developer
 4. **FFTW Thread Safety:** FFTW plan creation/destruction is not thread-safe. Plans must be created during initialization on the main thread.
 
 5. **Real-Time Constraints:** While DSP threads aim for real-time performance, they still use some blocking primitives. Critical paths should minimize time holding locks.
+
+## Architecture Documentation Index
+
+This core architecture document is part of a comprehensive series:
+
+- **[01_core_architecture.md](./01_core_architecture.md)** - Application lifecycle and global systems (this document)
+- **[02_module_system.md](./02_module_system.md)** - Module types, lifecycle, and basic patterns
+- **[03_signal_path_dsp.md](./03_signal_path_dsp.md)** - DSP engine, signal flow, and processing blocks
+- **[04_ui_system.md](./04_ui_system.md)** - UI architecture and ImGui integration
+- **[05_advanced_module_patterns.md](./05_advanced_module_patterns.md)** - Complex module patterns, threading, and integration
+- **[06_debugging_troubleshooting.md](./06_debugging_troubleshooting.md)** - Systematic debugging approaches and common issues
+
+For module developers, start with documents 01-02 for basics, then review 05-06 for advanced patterns and troubleshooting techniques.

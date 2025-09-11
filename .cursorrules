@@ -275,6 +275,24 @@ IS_MACOS_BUNDLE defined? (requires USE_BUNDLE_DEFAULTS=ON)
 - Include brief description of contribution (e.g., "PeiusMars (Parks-McClellan DSP)")
 - For general contributors, add to appropriate section in core/src/credits.cpp
 
+## File Editing Safety Rules - CRITICAL
+
+### ❌ NEVER DO: Grep-Based File Editing
+- DO NOT use grep/search tools to target file edits without reading the complete file first
+- DO NOT make changes based on grep fragments without understanding full context
+- DO NOT assume grep results show the complete picture of what you're editing
+- DO NOT edit files based on partial search results that may miss conflicts or dependencies
+
+### ✅ ALWAYS DO: Full File Context Before Editing
+- ALWAYS read the complete file with read_file before making any edits
+- ALWAYS understand the full context, structure, and existing content
+- ALWAYS verify your changes won't conflict with other parts of the file
+- ALWAYS ensure consistency across the entire file after making changes
+- ALWAYS re-read files if edits fail to understand the current state
+
+### 🎯 Key Insight:
+Grep shows fragments out of context. File editing requires understanding the complete file structure, existing patterns, and potential conflicts. Fragment-based editing creates inconsistencies and errors.
+
 ## General Project Rules
 - Unit tests are sacred and shouldn't be changed unless specifically authorized
 - Prefer dynamic configuration over hardcoded variables

@@ -374,4 +374,42 @@ else()
 endif()
 ```
 
+## 2.7. Critical Safety Rules
+
+### ❌ NEVER DO in Module Development
+
+1. **Constructor Pitfalls:**
+   - Never call virtual functions in constructors (undefined behavior)
+   - Never access sink/VFO systems during construction (mutex crashes)
+   - Never auto-start network/file operations in constructors
+
+2. **Threading Violations:**
+   - Never use `const_cast` on mutexes (declare as `mutable` instead)
+   - Never access object members during destruction without atomic guards
+   - Never block DSP threads on UI operations
+
+3. **Configuration Errors:**
+   - Never add config keys without updating default schema in `core/src/core.cpp`
+   - Never assume config types (always check with `.is_boolean()`, etc.)
+   - Never auto-start features during config loading from constructors
+
+### ✅ ALWAYS DO in Module Development
+
+1. **Proper Initialization Order:**
+   - Constructor: Basic setup, registration only
+   - `postInit()`: Inter-module communication setup
+   - `enable()`: DSP initialization, auto-start features
+
+2. **Thread-Safe Destruction:**
+   - Set atomic destruction flag first
+   - Stop all threads and operations
+   - Clean up resources in proper order
+
+3. **Configuration Schema-First:**
+   - Add all config keys to default schema first
+   - Load config with type checking and defaults
+   - Save immediately after UI changes
+
+*For comprehensive advanced patterns, debugging techniques, and real-world examples from digital demodulation implementation, see the [Advanced Module Patterns](./05_advanced_module_patterns.md) document.*
+
 *For a deeper dive into advanced module patterns and inter-module communication, see the [Module Internals](./02a_module_internals.md) document.*
